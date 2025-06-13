@@ -1,0 +1,45 @@
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: nvidia.com/gpu.memory
+          operator: Gt
+          values:
+          - "24000"
+ingress:
+  annotations:
+    kubernetes.io/ingress.class: haproxy
+  enabled: true
+  hosts:
+  - host: i2-ollama.nrp-nautilus.io
+    paths:
+    - path: /
+      pathType: Prefix
+  tls:
+  - hosts:
+    - i2-ollama.nrp-nautilus.io
+ollama:
+  gpu:
+    enabled: true
+    number: 1
+    type: nvidia
+  models:
+    pull:
+    - qwen3:8b
+    - qwen3:32b
+    - qwen3:30b-a3b
+    - llama3.3:70b
+persistentVolumeClaim:
+  enabled: true
+  size: 500Gi
+  storageClass: rook-ceph-block
+resources:
+  limits:
+    cpu: 5
+    memory: 36Gi
+    nvidia.com/gpu: 2
+  requests:
+    cpu: 1
+    memory: 36Gi
+    nvidia.com/gpu: 2

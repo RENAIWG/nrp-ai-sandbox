@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: watt-8b-vllm-inference
+  namespace: i2-danswer
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: watt-8b-vllm-inference
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: watt-8b-vllm-inference
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: nvidia.com/gpu.memory
+                operator: Gt
+                values:
+                - "24000"
+      containers:
+      - args:
+        - -m
+        - vllm.entrypoints.openai.api_server
+        - --port
+        - "5000"
+        - --host
+        - 0.0.0.0
+        - --download-dir
+        - /workspace/.cache/huggingface/hub
+        - --model
+        - watt-ai/watt-tool-8B
+        - --tensor-parallel-size
+        - "2"
+        - --trust-remote-code
+        - --enable-auto-tool-choice
+        - --tool-call-parser
+        - pythonic
+        - --chat-template
+        - examples/tool_chat_template_llama3.2_pythonic.jinja
+        command:
+        - python3
+        env:
+        - name: NCCL_IGNORE_DISABLED_P2P
+          value: "1"
+        - name: HUGGING_FACE_HUB_TOKEN
+          value:
+        # envFrom:
+        # - configMapRef:
+        #     name: watt-8b-vllm-inference
+        image: vllm/vllm-openai:v0.8.0
+        imagePullPolicy: IfNotPresent
+        name: watt-8b-vllm-inference
+        ports:
+        - containerPort: 5000
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            cpu: "5"
+            memory: 36Gi
+            nvidia.com/gpu: "2"
+          requests:
+            cpu: "1"
+            memory: 36Gi
+            nvidia.com/gpu: "2"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: false
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /workspace/.cache
+          name: watt-8b-vllm-inference
+          subPath: cache
+        - mountPath: /dev/shm
+          name: shm
+      dnsPolicy: ClusterFirst
+      nodeSelector:
+        topology.kubernetes.io/region: us-west
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        runAsGroup: 0
+        runAsNonRoot: false
+        runAsUser: 0
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: watt-8b-vllm-inference
+        persistentVolumeClaim:
+          claimName: watt-8b-vllm-inference
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 10995116277760m
+        name: shm
